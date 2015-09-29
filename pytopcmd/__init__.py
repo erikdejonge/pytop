@@ -127,6 +127,7 @@ def poll(interval):
             p.dict = p.as_dict(['username', 'cmdline', 'nice', 'memory_info',
                                 'memory_percent', 'cpu_percent',
                                 'cpu_times', 'name', 'status'])
+
             cmdl = " ".join(p.dict['cmdline'])
             if len(cmdl) > 0:
                 p.dict['name'] = cmdl
@@ -154,7 +155,7 @@ def poll(interval):
                 procs_status[p.dict['status']] += 1
             except KeyError:
                 procs_status[p.dict['status']] = 1
-        except psutil.NoSuchProcess:
+        except Exception:
             pass
         else:
             procs.append(p)
@@ -295,6 +296,7 @@ def tear_down():
     curses.nocbreak()
     curses.echo()
     curses.endwin()
+
 
     if sys.stderr.isatty():
         sys.stdout.write('\x1Bc')
