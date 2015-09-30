@@ -31,9 +31,10 @@ PID    USER       NI  VIRT   RES   CPU% MEM%     TIME +   NAME
 
 from sh import whoami
 
-if whoami().strip() != "root":
-    print("\033[31mError: pytop must be run as root (sudo pytop)\033[0m")
-    exit(1)
+#if "root" not in whoami():
+#    print("\033[31mError: pytop must be run as root (sudo pytop)\033[0m", whoami())
+#    print(whoami())
+#    exit(1)
 
 import _thread
 import os
@@ -50,9 +51,8 @@ import threading
 import psutil
 
 # --- curses stuff
+
 win = curses.initscr()
-
-
 curses.endwin()
 
 lineno = 0
@@ -74,9 +74,11 @@ def do_something():
 def print_line(line, highlight=False):
     """A thin wrapper around curses's addstr()."""
     global lineno
+
     try:
         if highlight:
             line += " " * (win.getmaxyx()[1] - len(line))
+            import random
             win.addstr(lineno, 0, line, curses.A_REVERSE)
         else:
             win.addstr(lineno, 0, line, 0)
@@ -127,17 +129,24 @@ def poll(interval):
             p.dict = p.as_dict(['username', 'cmdline', 'nice', 'memory_info',
                                 'memory_percent', 'cpu_percent',
                                 'cpu_times', 'name', 'status'])
+            try:
+                cmdl = " ".join(p.dict['cmdline'])
+            except TypeError:
+                cmdl = "-"
 
-            cmdl = " ".join(p.dict['cmdline'])
             if len(cmdl) > 0:
                 p.dict['name'] = cmdl
+
             try:
                 iperc = int(p.dict["cpu_percent"])
             except TypeError:
-                print("\033[31mError: pytop must be run as root (sudo pytop)\033[0m")
-                exit(1)
+                iperc = -1
+                #print("\033[31mError: pytop must be run as root (sudo pytop)\033[0m")
+                #exit(1)
 
-            p.dict["cpu_percent"]=str(int(p.dict["cpu_percent"]))
+            iperc = float(p.dict["cpu_percent"])
+            iperc = str(iperc)
+            p.dict["cpu_percent"]=iperc
             if iperc != 100:
                 if iperc > 9:
                     p.dict["cpu_percent"] = " "+p.dict["cpu_percent"]
@@ -184,7 +193,7 @@ def print_header(procs_status, num_procs):
 
     for cpu_num, perc in enumerate(percs):
         dashes, empty_dashes = get_dashes(perc)
-        print_line(" CPU%-2s [%s%s] %5s%%" % (cpu_num, dashes, empty_dashes,
+        print_line("   CPU%-2s [%s%s] %5s%%" % (cpu_num, dashes, empty_dashes,
                                               perc))
 
     mem = psutil.virtual_memory()
@@ -229,9 +238,9 @@ def print_header(procs_status, num_procs):
 def refresh_window(procs, procs_status):
     """Print results on screen by using curses."""
     #curses.endwin()
-    templ = "%6s %2s %2s %5s %9s  %-19s "
+    templ = "%6s %6s %3s %5s %9s  %-19s "
     win.erase()
-    header = templ % ("PID", "CPU%", " NI", "MEM%",
+    header = templ % ("PIDS", "CPU%", " NI", "MEM%",
                       "TIME+", "NAME")
 
     print_header(procs_status, len(procs))
@@ -264,11 +273,12 @@ def refresh_window(procs, procs_status):
                 username = p.dict['username'][:8]
             else:
                 username = ""
+            from termcolor import colored, cprint
 
 
-            line = templ % (p.pid,
+            line = templ % (str(p.pid),
                             p.dict['cpu_percent'],
-                            p.dict['nice'],
+                            p.dict['nice'].strip(),
 
                             #bytes2human(getattr(p.dict['memory_info'], 'vms', 0)),
                             #bytes2human(getattr(p.dict['memory_info'], 'rss', 0)),
@@ -278,6 +288,8 @@ def refresh_window(procs, procs_status):
                             )
 
             try:
+
+
                 print_line(line)
             except curses.error:
                 break
