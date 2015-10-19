@@ -8,7 +8,7 @@ license: GNU-GPL2
 """
 from setuptools import setup
 setup(name='pytopcmd',
-      version='10',
+      version='12',
       description='Simpler Unix top command implemented in python',
       url='https://github.com/erikdejonge/pytop',
       author='Erik de Jonge',
@@ -21,9 +21,9 @@ setup(name='pytopcmd',
       },
       packages=['pytopcmd'],
       zip_safe=True,
-      install_requires=['arguments', 'fuzzywuzzy', 'sh', 'readchar'],
+      install_requires=['arguments', 'fuzzywuzzy', 'sh', 'readchar', 'dateutils', 'psutil'],
       classifiers=[
-          "Programming Language :: Python :: 3",
+          "Programming Language :: Python :: 2",
           "Intended Audience :: Developers",
           "Intended Audience :: System Administrators",
           "Topic :: Utilities",
