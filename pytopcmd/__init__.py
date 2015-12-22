@@ -1,4 +1,6 @@
+# coding=utf-8
 #!/usr/bin/env python
+
 # Copyright (c) 2009, Giampaolo Rodola'. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -28,14 +30,14 @@ PID    USER       NI  VIRT   RES   CPU% MEM%     TIME +   NAME
 339    giampaol    0    1G  113M    0.9  1.1   8:15.73  chrome
 ...
 """
-
 from sh import whoami
 
-#if "root" not in whoami():
+# if "root" not in whoami():
+
 #    print("\033[31mError: pytop must be run as root (sudo pytop)\033[0m", whoami())
 #    print(whoami())
-#    exit(1)
 
+#    exit(1)
 import _thread
 import os
 import sys
@@ -45,14 +47,22 @@ if os.name != 'posix':
 import atexit
 import curses
 import time
+
 from datetime import datetime, timedelta
 from optparse import OptionParser
 import threading
 import psutil
 
 # --- curses stuff
-
 win = curses.initscr()
+
+curses.start_color()
+
+curses.use_default_colors()
+
+for i in range(0, curses.COLORS):
+    curses.init_pair(i, i, -1)
+
 curses.endwin()
 
 lineno = 0
@@ -71,20 +81,28 @@ def do_something():
     _thread.interrupt_main()
 
 
-def print_line(line, highlight=False):
+def print_line(line, highcpu=False, highmem=False, header=False):
     """A thin wrapper around curses's addstr()."""
     global lineno
-
+    if not header:
+        line += " " * (win.getmaxyx()[1] - len(line))
     try:
-        if highlight:
-            line += " " * (win.getmaxyx()[1] - len(line))
-            import random
-            win.addstr(lineno, 0, line, curses.A_REVERSE)
+        if highcpu and highmem:
+            win.addstr(lineno, 0, line, curses.color_pair(1))
+        elif highcpu:
+            win.addstr(lineno, 0, line, curses.color_pair(5))
+        elif highmem:
+            win.addstr(lineno, 0, line, curses.color_pair(4))
         else:
-            win.addstr(lineno, 0, line, 0)
+            if header:
+                win.addstr(lineno, 0, line, curses.color_pair(3))
+            else:
+                win.addstr(lineno, 0, line, curses.color_pair(0))
+
     except curses.error:
         lineno = 0
         win.refresh()
+
         raise
     else:
         lineno += 1
@@ -129,6 +147,8 @@ def poll(interval):
             p.dict = p.as_dict(['username', 'cmdline', 'nice', 'memory_info',
                                 'memory_percent', 'cpu_percent',
                                 'cpu_times', 'name', 'status'])
+
+            p.dict["nice"] = interval
             try:
                 cmdl = " ".join(p.dict['cmdline'])
             except TypeError:
@@ -136,29 +156,31 @@ def poll(interval):
 
             if len(cmdl) > 0:
                 p.dict['name'] = cmdl
-
             try:
                 iperc = int(p.dict["cpu_percent"])
             except TypeError:
                 iperc = -1
-                #print("\033[31mError: pytop must be run as root (sudo pytop)\033[0m")
-                #exit(1)
+
+                # print("\033[31mError: pytop must be run as root (sudo pytop)\033[0m")
+                # exit(1)
 
             iperc = float(p.dict["cpu_percent"])
             iperc = str(iperc)
-            p.dict["cpu_percent"]=iperc
+            p.dict["cpu_percent"] = iperc
             if iperc != 100:
                 if iperc > 9:
-                    p.dict["cpu_percent"] = " "+p.dict["cpu_percent"]
+                    p.dict["cpu_percent"] = " " + p.dict["cpu_percent"]
                 else:
-                    p.dict["cpu_percent"] = "  "+p.dict["cpu_percent"]
-            p.dict["cpu_percent"] = p.dict["cpu_percent"]
+                    p.dict["cpu_percent"] = "  " + p.dict["cpu_percent"]
 
+            p.dict["cpu_percent"] = p.dict["cpu_percent"]
             nice = str(p.dict["nice"]).strip()
+
             if nice.startswith("-"):
-                nice = " "+nice
+                nice = " " + nice
             else:
-                nice = "   "+nice
+                nice = "   " + nice
+
             p.dict["nice"] = nice
             try:
                 procs_status[p.dict['status']] += 1
@@ -170,7 +192,7 @@ def poll(interval):
             procs.append(p)
 
     # return processes sorted by CPU percent usage
-    processes = sorted(procs, key=lambda p: p.dict['cpu_percent'],
+    processes = sorted(procs, key=lambda p: float(p.dict['cpu_percent']),
                        reverse=True)
 
     return (processes, procs_status)
@@ -178,7 +200,6 @@ def poll(interval):
 
 def print_header(procs_status, num_procs):
     """Print system-related info, above the process list."""
-
     def get_dashes(perc):
         """
         @type perc: str, unicode
@@ -193,30 +214,29 @@ def print_header(procs_status, num_procs):
 
     for cpu_num, perc in enumerate(percs):
         dashes, empty_dashes = get_dashes(perc)
-        print_line("   CPU%-2s [%s%s] %5s%%" % (cpu_num, dashes, empty_dashes,
-                                              perc))
+        print_line("   CPU%-2s [%s%s] %5s%%" % (cpu_num, dashes, empty_dashes, perc), header=True)
 
     mem = psutil.virtual_memory()
     dashes, empty_dashes = get_dashes(mem.percent)
     used = mem.total - mem.available
-    line = " Mem   [%s%s] %5s%% %6s/%s" % (
+    line = "   Mem   [%s%s] %5s%% %6s/%s" % (
         dashes, empty_dashes,
         mem.percent,
         str(int(used / 1024 / 1024)) + "M",
         str(int(mem.total / 1024 / 1024)) + "M"
     )
-    print_line(line)
+    print_line(line, header=True)
 
     # swap usage
     swap = psutil.swap_memory()
     dashes, empty_dashes = get_dashes(swap.percent)
-    line = " Swap  [%s%s] %5s%% %6s/%s" % (
+    line = "   Swap  [%s%s] %5s%% %6s/%s" % (
         dashes, empty_dashes,
         swap.percent,
         str(int(swap.used / 1024 / 1024)) + "M",
         str(int(swap.total / 1024 / 1024)) + "M"
     )
-    print_line(line)
+    print_line(line, header=True)
 
     # processes number and status
     st = []
@@ -226,18 +246,19 @@ def print_header(procs_status, num_procs):
             st.append("%s=%s" % (x, y))
 
     st.sort(key=lambda x: x[:3] in ('run', 'sle'), reverse=1)
-    print_line(" Processes: %s (%s)" % (num_procs, ' '.join(st)))
+    print_line(" Processes: %s (%s)" % (num_procs, ' '.join(st)), header=True)
 
     # load average, uptime
     uptime = datetime.now() - datetime.fromtimestamp(psutil.boot_time())
     av1, av2, av3 = os.getloadavg()
-    line = " Load average: %.2f %.2f %.2f  Uptime: %s"  % (av1, av2, av3, str(uptime).split('.')[0])
-    print_line(line)
+    line = " Load average: %.2f %.2f %.2f  Uptime: %s" % (av1, av2, av3, str(uptime).split('.')[0])
+    print_line(line, header=True)
 
 
 def refresh_window(procs, procs_status):
     """Print results on screen by using curses."""
-    #curses.endwin()
+
+    # curses.endwin()
     templ = "%6s %6s %3s %5s %9s  %-19s "
     win.erase()
     header = templ % ("PIDS", "CPU%", " NI", "MEM%",
@@ -248,8 +269,6 @@ def refresh_window(procs, procs_status):
     print_line(header)
 
     for p in procs:
-
-
         if p.pid != os.getpid():
             # TIME +  column shows process CPU cumulative time and it
             # is expressed as: "mm:ss.ms"
@@ -274,23 +293,20 @@ def refresh_window(procs, procs_status):
             else:
                 username = ""
             from termcolor import colored, cprint
-
-
             line = templ % (str(p.pid),
                             p.dict['cpu_percent'],
                             p.dict['nice'].strip(),
 
-                            #bytes2human(getattr(p.dict['memory_info'], 'vms', 0)),
-                            #bytes2human(getattr(p.dict['memory_info'], 'rss', 0)),
+                            # bytes2human(getattr(p.dict['memory_info'], 'vms', 0)),
+                            # bytes2human(getattr(p.dict['memory_info'], 'rss', 0)),
+
                             p.dict['memory_percent'],
                             ctime,
                             p.dict['name'] or '',
                             )
 
             try:
-
-
-                print_line(line)
+                print_line(line, highcpu=float(p.dict['cpu_percent']) > 30, highmem=float(p.dict['memory_percent']) > 8)
             except curses.error:
                 break
 
@@ -309,7 +325,6 @@ def tear_down():
     curses.echo()
     curses.endwin()
 
-
     if sys.stderr.isatty():
         sys.stdout.write('\x1Bc')
     else:
@@ -322,7 +337,19 @@ def tear_down():
             if killer is None:
                 killer = i
 
-            sys.stdout.write(str(i.pid)+" "+ i.dict['name']+" "+str(i.dict['cpu_percent'])+"\n")
+            name = i.dict['name']
+
+            cnt2 = 0
+            while len(name) > 150:
+                name = name[cnt2:]
+                cnt2 += 1
+
+            value = str(i.pid) + "\t" + str(i.dict['cpu_percent']) + "\t" + name + "\n"
+
+            if float(i.dict['cpu_percent']) > 30:
+                value = "\033[31m" + value + "\033[0m"
+
+            sys.stdout.write(value)
             cnt += 1
 
             if cnt > 10:
@@ -332,13 +359,10 @@ def tear_down():
     if killtop:
         print("top.py:274")
         print("top.py:275", "killing ", killer.dict['name'])
-        os.system("kill "+str(killer.pid))
+        os.system("kill " + str(killer.pid))
 
     sys.stdout.flush()
-
-
 import readchar
-
 
 
 def wait_for_input():
@@ -348,7 +372,7 @@ def wait_for_input():
     try:
         print("started")
         c = ''
-        while c!='q':
+        while c != 'q':
             c = readchar.readchar()
 
         print("set")
@@ -356,40 +380,45 @@ def wait_for_input():
     except:
         pass
 
+
 def main():
     """
     main
     """
     parser = OptionParser()
-    parser.add_option("-t", "--time", dest="time", default=1, help="Time interval", type="float")
+    parser.add_option("-t", "--time", dest="time", default=3, help="Time interval", type="float")
     parser.add_option("-k", "--killtop", dest="killtop", action="store_true", help="Kill top cpu proc")
     (options, args) = parser.parse_args()
 
     if options.time is None:
-
         parser.print_help()
         return
     global killtop
     killtop = options.killtop
     atexit.register(tear_down)
     _thread.start_new_thread(wait_for_input, tuple())
-
     try:
         interval = 0
+        cnt = 0
 
-        while 1:
-            if  G_EVENT.isSet():
+        while True:
+            if G_EVENT.isSet():
                 raise SystemExit("gevent")
+
             args = poll(interval)
             refresh_window(*args)
             new_i = options.time
+
             if new_i <= 0.05:
                 new_i = 0.05
 
-            interval = new_i
-            if  G_EVENT.isSet():
+            if cnt > 0:
+                interval = new_i
+
+            if G_EVENT.isSet():
                 raise SystemExit("gevent")
 
+            cnt += 1
     except (KeyboardInterrupt, SystemExit):
         pass
 
