@@ -97,7 +97,7 @@ def print_line(line, highcpu=False, highmem=False, header=False):
             if header:
                 win.addstr(lineno, 0, line, curses.color_pair(3))
             else:
-                win.addstr(lineno, 0, line, curses.color_pair(0))
+                win.addstr(lineno, 0, line, curses.color_pair(7))
 
     except curses.error:
         lineno = 0
@@ -107,7 +107,21 @@ def print_line(line, highcpu=False, highmem=False, header=False):
     else:
         lineno += 1
 
-# --- /curses stuff
+
+def test_colors():
+    """
+    test_colors
+    """
+    lineno = 0
+
+    # --- /curses stuff
+    for i in range(0, curses.COLORS):
+        global lineno
+        lineno += 1
+        win.addstr(lineno, 0, (str(i) + ". hekki"), curses.color_pair(i))
+
+    win.refresh()
+    exit(1)
 
 
 def bytes2human(n):
@@ -338,8 +352,8 @@ def tear_down():
                 killer = i
 
             name = i.dict['name']
-
             cnt2 = 0
+
             while len(name) > 150:
                 name = name[cnt2:]
                 cnt2 += 1
