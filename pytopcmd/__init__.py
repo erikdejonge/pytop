@@ -52,6 +52,8 @@ from datetime import datetime, timedelta
 from optparse import OptionParser
 import threading
 import psutil
+global lineno
+lineno = 0
 
 # --- curses stuff
 win = curses.initscr()
@@ -64,8 +66,6 @@ for i in range(0, curses.COLORS):
     curses.init_pair(i, i, -1)
 
 curses.endwin()
-
-lineno = 0
 
 G_EVENT = threading.Event()
 
@@ -112,11 +112,12 @@ def test_colors():
     """
     test_colors
     """
+    global lineno
     lineno = 0
 
     # --- /curses stuff
     for i in range(0, curses.COLORS):
-        global lineno
+
         lineno += 1
         win.addstr(lineno, 0, (str(i) + ". hekki"), curses.color_pair(i))
 
@@ -152,7 +153,15 @@ def poll(interval):
     """
 
     # sleep some time
-    time.sleep(interval)
+
+    startt = time.time()
+
+    while int(time.time() - startt) < interval:
+        if G_EVENT.isSet():
+            break
+        time.sleep(0.1)
+
+
     procs = []
     procs_status = {}
 
@@ -320,7 +329,7 @@ def refresh_window(procs, procs_status):
                             )
 
             try:
-                print_line(line, highcpu=float(p.dict['cpu_percent']) > 30, highmem=float(p.dict['memory_percent']) > 8)
+                print_line(line, highcpu=float(p.dict['cpu_percent']) > 20, highmem=float(p.dict['memory_percent']) > 1.5)
             except curses.error:
                 break
 
@@ -339,11 +348,11 @@ def tear_down():
     curses.echo()
     curses.endwin()
 
-    if sys.stderr.isatty():
-        sys.stdout.write('\x1Bc')
-    else:
-        sys.stdout.write('-\n--\n--- clear ---\n--\n-\n')
-    sys.stdout.write('-\n--\n--- top 10 cpu ---\n--\n-\n')
+    #if sys.stderr.isatty():
+        #sys.stdout.write('\x1Bc')
+    #else:
+    #    sys.stdout.write('-\n--\n--- clear ---\n--\n-\n')
+    sys.stdout.write("\033[34m\n\n----\n-- top 10 cpu \n-\n\033[0m")
     cnt = 0
     killer = None
     for i in poll(0)[0]:
@@ -360,8 +369,10 @@ def tear_down():
 
             value = str(i.pid) + "\t" + str(i.dict['cpu_percent']) + "\t" + name + "\n"
 
-            if float(i.dict['cpu_percent']) > 30:
-                value = "\033[31m" + value + "\033[0m"
+            if float(i.dict['cpu_percent']) > 10 and 'MacOS/Terminal' not in value:
+                value = "\033[91m" + value + "\033[0m"
+            else:
+                value = "\033[37m"+value+"\033[0m"
 
             sys.stdout.write(value)
             cnt += 1
@@ -400,13 +411,15 @@ def main():
     main
     """
     parser = OptionParser()
-    parser.add_option("-t", "--time", dest="time", default=3, help="Time interval", type="float")
+    parser.add_option("-t", "--time", dest="time", default=2, help="Time interval", type="float")
     parser.add_option("-k", "--killtop", dest="killtop", action="store_true", help="Kill top cpu proc")
     (options, args) = parser.parse_args()
 
     if options.time is None:
         parser.print_help()
         return
+
+
     global killtop
     killtop = options.killtop
     atexit.register(tear_down)
