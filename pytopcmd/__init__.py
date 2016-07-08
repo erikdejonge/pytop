@@ -1,4 +1,4 @@
-# coding=utf-8
+    # coding=utf-8
 #!/usr/bin/env python
 
 # Copyright (c) 2009, Giampaolo Rodola'. All rights reserved.
@@ -38,7 +38,7 @@ from sh import whoami
 #    print(whoami())
 
 #    exit(1)
-import _thread
+#import _thread
 import os
 import sys
 
