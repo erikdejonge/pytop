@@ -38,7 +38,7 @@ from sh import whoami
 #    print(whoami())
 
 #    exit(1)
-#import _thread
+import _thread
 import os
 import sys
 
@@ -48,10 +48,12 @@ import atexit
 import curses
 import time
 
-from datetime import datetime, timedelta
-from optparse import OptionParser
-import threading
 import psutil
+import threading
+
+from datetime import datetime
+from datetime import timedelta
+from optparse import OptionParser
 global lineno
 lineno = 0
 
